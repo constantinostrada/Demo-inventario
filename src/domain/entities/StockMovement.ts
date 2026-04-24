@@ -35,8 +35,14 @@ export class StockMovement {
     if (!props.id || props.id.trim().length === 0) {
       throw new DomainException('StockMovement id cannot be empty.');
     }
-    if (props.quantity <= 0) {
-      throw new DomainException('Movement quantity must be a positive number.');
+    if (!Number.isInteger(props.quantity) || props.quantity <= 0) {
+      throw new DomainException('Movement quantity must be a positive integer.');
+    }
+    if (!Number.isInteger(props.previousStock) || props.previousStock < 0) {
+      throw new DomainException('previousStock must be a non-negative integer.');
+    }
+    if (!Number.isInteger(props.newStock) || props.newStock < 0) {
+      throw new DomainException('newStock must be a non-negative integer.');
     }
     if (!props.reason || props.reason.trim().length === 0) {
       throw new DomainException('Movement reason cannot be empty.');
