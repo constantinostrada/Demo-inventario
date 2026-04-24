@@ -1,0 +1,32 @@
+{
+  "name": "demo-inventario",
+  "version": "1.0.0",
+  "description": "Demo Inventario — A production-ready inventory management system built with Node.js, Express, TypeScript, Next.js, React, Tailwind CSS, PostgreSQL, and Docker.",
+  "private": true,
+  "workspaces": [
+    "packages/api",
+    "packages/web"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=packages/api\" \"npm run dev --workspace=packages/web\"",
+    "build": "npm run build --workspace=packages/api && npm run build --workspace=packages/web",
+    "lint": "npm run lint --workspace=packages/api && npm run lint --workspace=packages/web",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "typecheck": "npm run typecheck --workspace=packages/api && npm run typecheck --workspace=packages/web",
+    "test": "npm run test --workspace=packages/api",
+    "db:migrate": "npm run db:migrate --workspace=packages/api",
+    "db:seed": "npm run db:seed --workspace=packages/api",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prettier": "^3.2.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

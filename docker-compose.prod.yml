@@ -1,0 +1,83 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: demo_inventario_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - inventario_net
+
+  api:
+    build:
+      context: ./packages/api
+      dockerfile: Dockerfile
+      target: production
+    container_name: demo_inventario_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    networks:
+      - inventario_net
+
+  web:
+    build:
+      context: ./packages/web
+      dockerfile: Dockerfile
+      target: production
+    container_name: demo_inventario_web
+    restart: always
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - '80:3001'
+    networks:
+      - inventario_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: demo_inventario_nginx
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+      - web
+    networks:
+      - inventario_net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  inventario_net:
+    driver: bridge
