@@ -47,6 +47,7 @@ export const createProductValidators = [
     .withMessage(`category must be one of: ${PRODUCT_CATEGORIES.join(', ')}`),
 
   body('stockQuantity')
+    .optional()
     .isInt({ min: 0 })
     .withMessage('stockQuantity must be a non-negative integer'),
 

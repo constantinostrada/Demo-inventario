@@ -18,10 +18,12 @@ import { logger } from '../../infrastructure/config/logger';
 import { PostgresClient } from '../../infrastructure/database/PostgresClient';
 import { PostgresProductRepository } from '../../infrastructure/repositories/PostgresProductRepository';
 import { PostgresStockMovementRepository } from '../../infrastructure/repositories/PostgresStockMovementRepository';
+import { PostgresBranchRepository } from '../../infrastructure/repositories/PostgresBranchRepository';
+import { PostgresStockRepository } from '../../infrastructure/repositories/PostgresStockRepository';
 
 import { StockDomainService } from '../../domain/services/StockDomainService';
 
-import { CreateProductUseCase } from '../../application/use-cases/product/CreateProductUseCase';
+import { CreateProductWithBranchStockUseCase } from '../../application/use-cases/product/CreateProductWithBranchStockUseCase';
 import { GetProductUseCase } from '../../application/use-cases/product/GetProductUseCase';
 import { GetProductsUseCase } from '../../application/use-cases/product/GetProductsUseCase';
 import { UpdateProductUseCase } from '../../application/use-cases/product/UpdateProductUseCase';
@@ -51,12 +53,18 @@ export function createApp(): { app: Application; db: PostgresClient } {
   // ─── Repositories ────────────────────────────────────────────────────────
   const productRepository = new PostgresProductRepository(db);
   const stockMovementRepository = new PostgresStockMovementRepository(db);
+  const branchRepository = new PostgresBranchRepository(db);
+  const stockRepository = new PostgresStockRepository(db);
 
   // ─── Domain Services ─────────────────────────────────────────────────────
   const stockDomainService = new StockDomainService();
 
   // ─── Use Cases ───────────────────────────────────────────────────────────
-  const createProductUseCase = new CreateProductUseCase(productRepository);
+  const createProductUseCase = new CreateProductWithBranchStockUseCase(
+    productRepository,
+    branchRepository,
+    stockRepository,
+  );
   const getProductUseCase = new GetProductUseCase(productRepository);
   const getProductsUseCase = new GetProductsUseCase(productRepository);
   const updateProductUseCase = new UpdateProductUseCase(productRepository);

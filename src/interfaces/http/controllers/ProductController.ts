@@ -10,7 +10,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 
-import { CreateProductUseCase } from '../../../application/use-cases/product/CreateProductUseCase';
+import { CreateProductWithBranchStockUseCase } from '../../../application/use-cases/product/CreateProductWithBranchStockUseCase';
 import { GetProductUseCase } from '../../../application/use-cases/product/GetProductUseCase';
 import { GetProductsUseCase } from '../../../application/use-cases/product/GetProductsUseCase';
 import { UpdateProductUseCase } from '../../../application/use-cases/product/UpdateProductUseCase';
@@ -20,7 +20,7 @@ import { CurrencyCode } from '../../../domain/value-objects/Money';
 
 export class ProductController {
   constructor(
-    private readonly createProduct: CreateProductUseCase,
+    private readonly createProduct: CreateProductWithBranchStockUseCase,
     private readonly getProduct: GetProductUseCase,
     private readonly getProducts: GetProductsUseCase,
     private readonly updateProduct: UpdateProductUseCase,
@@ -37,7 +37,7 @@ export class ProductController {
         priceAmount: req.body.priceAmount as number,
         priceCurrency: (req.body.priceCurrency as CurrencyCode) ?? 'USD',
         category: req.body.category as ProductCategoryValue,
-        stockQuantity: req.body.stockQuantity as number,
+        stockQuantity: 0,
         minimumStockLevel: (req.body.minimumStockLevel as number) ?? 0,
       });
       res.status(201).json({ success: true, data: result });
