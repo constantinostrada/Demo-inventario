@@ -21,6 +21,8 @@ export class StockMovementMapper {
       reason: movement.reason,
       performedBy: movement.performedBy,
       createdAt: movement.createdAt.toISOString(),
+      sourceBranchId: movement.sourceBranchId?.value ?? null,
+      destinationBranchId: movement.destinationBranchId?.value ?? null,
     };
   }
 }

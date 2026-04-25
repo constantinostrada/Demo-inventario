@@ -4,13 +4,21 @@
  * Records every change to a product's stock level (audit trail).
  * Immutable after creation — movements are never modified.
  *
+ * Each movement captures the type, quantity, date, product, and the
+ * branch(es) involved:
+ *   - IN          → destinationBranchId (where stock arrived)
+ *   - OUT         → sourceBranchId      (where stock left from)
+ *   - TRANSFER    → both source and destination, and they must differ
+ *   - ADJUSTMENT  → branch-agnostic legacy adjustment (no branch required)
+ *
  * Layer: Domain → Entities
  */
 
 import { ProductId } from '../value-objects/ProductId';
+import { BranchId } from '../value-objects/BranchId';
 import { DomainException } from '../exceptions/DomainException';
 
-export type MovementType = 'IN' | 'OUT' | 'ADJUSTMENT';
+export type MovementType = 'IN' | 'OUT' | 'TRANSFER' | 'ADJUSTMENT';
 
 export interface StockMovementProps {
   id: string;
@@ -22,6 +30,8 @@ export interface StockMovementProps {
   reason: string;
   performedBy: string;
   createdAt: Date;
+  sourceBranchId?: BranchId;
+  destinationBranchId?: BranchId;
 }
 
 export class StockMovement {
@@ -35,8 +45,14 @@ export class StockMovement {
     if (!props.id || props.id.trim().length === 0) {
       throw new DomainException('StockMovement id cannot be empty.');
     }
-    if (props.quantity <= 0) {
-      throw new DomainException('Movement quantity must be a positive number.');
+    if (!Number.isInteger(props.quantity) || props.quantity <= 0) {
+      throw new DomainException('Movement quantity must be a positive integer.');
+    }
+    if (!Number.isInteger(props.previousStock) || props.previousStock < 0) {
+      throw new DomainException('previousStock must be a non-negative integer.');
+    }
+    if (!Number.isInteger(props.newStock) || props.newStock < 0) {
+      throw new DomainException('newStock must be a non-negative integer.');
     }
     if (!props.reason || props.reason.trim().length === 0) {
       throw new DomainException('Movement reason cannot be empty.');
@@ -44,7 +60,25 @@ export class StockMovement {
     if (!props.performedBy || props.performedBy.trim().length === 0) {
       throw new DomainException('performedBy cannot be empty.');
     }
+
+    StockMovement.validateBranchReferences(props);
+
     return new StockMovement(props);
+  }
+
+  private static validateBranchReferences(props: StockMovementProps): void {
+    if (props.type === 'TRANSFER') {
+      if (!props.sourceBranchId || !props.destinationBranchId) {
+        throw new DomainException(
+          'TRANSFER movements require both sourceBranchId and destinationBranchId.',
+        );
+      }
+      if (props.sourceBranchId.equals(props.destinationBranchId)) {
+        throw new DomainException(
+          'TRANSFER movements must have different source and destination branches.',
+        );
+      }
+    }
   }
 
   get id(): string {
@@ -81,5 +115,13 @@ export class StockMovement {
 
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+
+  get sourceBranchId(): BranchId | undefined {
+    return this.props.sourceBranchId;
+  }
+
+  get destinationBranchId(): BranchId | undefined {
+    return this.props.destinationBranchId;
   }
 }
