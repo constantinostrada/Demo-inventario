@@ -12,6 +12,8 @@ import { ProductId } from '../value-objects/ProductId';
 import { SKU } from '../value-objects/SKU';
 import { Money } from '../value-objects/Money';
 import { ProductCategory } from '../value-objects/ProductCategory';
+import { Branch } from '../value-objects/Branch';
+import { BranchStock } from '../value-objects/BranchStock';
 import { DomainException } from '../exceptions/DomainException';
 
 export interface ProductProps {
@@ -23,6 +25,7 @@ export interface ProductProps {
   category: ProductCategory;
   stockQuantity: number;
   minimumStockLevel: number;
+  branchStocks: BranchStock[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -55,8 +58,11 @@ export class Product {
     Product.validateMinimumStockLevel(createProps.minimumStockLevel);
 
     const now = new Date();
+    const branchStocks = Branch.all().map((branch) => new BranchStock(branch, 0));
+
     return new Product({
       ...createProps,
+      branchStocks,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -99,6 +105,10 @@ export class Product {
 
   get minimumStockLevel(): number {
     return this.props.minimumStockLevel;
+  }
+
+  get branchStocks(): readonly BranchStock[] {
+    return this.props.branchStocks;
   }
 
   get isActive(): boolean {

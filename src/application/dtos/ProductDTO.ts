@@ -56,6 +56,11 @@ export interface AdjustStockDTO {
 
 // ─── Output DTOs ──────────────────────────────────────────────────────────────
 
+export interface BranchStockDTO {
+  branchId: string;
+  quantity: number;
+}
+
 export interface ProductResponseDTO {
   id: string;
   name: string;
@@ -69,6 +74,7 @@ export interface ProductResponseDTO {
   category: ProductCategoryValue;
   stockQuantity: number;
   minimumStockLevel: number;
+  branchStocks: BranchStockDTO[];
   isLowStock: boolean;
   isOutOfStock: boolean;
   isActive: boolean;

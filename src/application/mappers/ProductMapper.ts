@@ -25,6 +25,10 @@ export class ProductMapper {
       category: product.category.value,
       stockQuantity: product.stockQuantity,
       minimumStockLevel: product.minimumStockLevel,
+      branchStocks: product.branchStocks.map((bs) => ({
+        branchId: bs.branch.value,
+        quantity: bs.quantity,
+      })),
       isLowStock: product.isLowStock(),
       isOutOfStock: product.isOutOfStock(),
       isActive: product.isActive,

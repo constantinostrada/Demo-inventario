@@ -13,6 +13,8 @@ import { ProductId } from '../../domain/value-objects/ProductId';
 import { SKU } from '../../domain/value-objects/SKU';
 import { Money } from '../../domain/value-objects/Money';
 import { ProductCategory } from '../../domain/value-objects/ProductCategory';
+import { Branch } from '../../domain/value-objects/Branch';
+import { BranchStock } from '../../domain/value-objects/BranchStock';
 import {
   IProductRepository,
   ProductFilters,
@@ -34,6 +36,12 @@ interface ProductRow {
   is_active: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+interface BranchStockRow {
+  product_id: string;
+  branch_id: string;
+  quantity: number;
 }
 
 export class PostgresProductRepository implements IProductRepository {
@@ -62,6 +70,15 @@ export class PostgresProductRepository implements IProductRepository {
         product.updatedAt,
       ],
     );
+
+    for (const branchStock of product.branchStocks) {
+      await this.db.query(
+        `INSERT INTO product_branch_stocks (product_id, branch_id, quantity)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (product_id, branch_id) DO UPDATE SET quantity = EXCLUDED.quantity`,
+        [product.id.value, branchStock.branch.value, branchStock.quantity],
+      );
+    }
   }
 
   async update(product: Product): Promise<void> {
@@ -100,7 +117,8 @@ export class PostgresProductRepository implements IProductRepository {
     if (result.rows.length === 0) {
       return null;
     }
-    return this.rowToEntity(result.rows[0]);
+    const branchStocks = await this.loadBranchStocks([result.rows[0].id]);
+    return this.rowToEntity(result.rows[0], branchStocks.get(result.rows[0].id) ?? []);
   }
 
   async findBySKU(sku: SKU): Promise<Product | null> {
@@ -111,7 +129,8 @@ export class PostgresProductRepository implements IProductRepository {
     if (result.rows.length === 0) {
       return null;
     }
-    return this.rowToEntity(result.rows[0]);
+    const branchStocks = await this.loadBranchStocks([result.rows[0].id]);
+    return this.rowToEntity(result.rows[0], branchStocks.get(result.rows[0].id) ?? []);
   }
 
   async findAll(
@@ -154,8 +173,12 @@ export class PostgresProductRepository implements IProductRepository {
       [...params, pagination.limit, offset],
     );
 
+    const branchStocks = await this.loadBranchStocks(dataResult.rows.map((r) => r.id));
+
     return {
-      data: dataResult.rows.map((row) => this.rowToEntity(row)),
+      data: dataResult.rows.map((row) =>
+        this.rowToEntity(row, branchStocks.get(row.id) ?? []),
+      ),
       total,
       page: pagination.page,
       limit: pagination.limit,
@@ -169,7 +192,8 @@ export class PostgresProductRepository implements IProductRepository {
        WHERE stock_quantity <= minimum_stock_level AND is_active = TRUE
        ORDER BY stock_quantity ASC`,
     );
-    return result.rows.map((row) => this.rowToEntity(row));
+    const branchStocks = await this.loadBranchStocks(result.rows.map((r) => r.id));
+    return result.rows.map((row) => this.rowToEntity(row, branchStocks.get(row.id) ?? []));
   }
 
   async delete(id: ProductId): Promise<void> {
@@ -186,7 +210,26 @@ export class PostgresProductRepository implements IProductRepository {
 
   // ─── Private Mapper ───────────────────────────────────────────────────────
 
-  private rowToEntity(row: ProductRow): Product {
+  private async loadBranchStocks(productIds: string[]): Promise<Map<string, BranchStock[]>> {
+    const grouped = new Map<string, BranchStock[]>();
+    if (productIds.length === 0) {
+      return grouped;
+    }
+    const result = await this.db.query<BranchStockRow>(
+      `SELECT product_id, branch_id, quantity
+       FROM product_branch_stocks
+       WHERE product_id = ANY($1::uuid[])`,
+      [productIds],
+    );
+    for (const row of result.rows) {
+      const list = grouped.get(row.product_id) ?? [];
+      list.push(new BranchStock(new Branch(row.branch_id), row.quantity));
+      grouped.set(row.product_id, list);
+    }
+    return grouped;
+  }
+
+  private rowToEntity(row: ProductRow, branchStocks: BranchStock[]): Product {
     return Product.reconstitute({
       id: new ProductId(row.id),
       name: row.name,
@@ -196,6 +239,7 @@ export class PostgresProductRepository implements IProductRepository {
       category: new ProductCategory(row.category),
       stockQuantity: row.stock_quantity,
       minimumStockLevel: row.minimum_stock_level,
+      branchStocks,
       isActive: row.is_active,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),

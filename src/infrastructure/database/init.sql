@@ -28,6 +28,18 @@ CREATE INDEX IF NOT EXISTS idx_products_category   ON products (category);
 CREATE INDEX IF NOT EXISTS idx_products_is_active  ON products (is_active);
 CREATE INDEX IF NOT EXISTS idx_products_name_trgm  ON products USING gin (name gin_trgm_ops);
 
+-- ─── Product Branch Stocks ───────────────────────────────────────────────────
+-- One row per (product, branch). A new product gets 3 rows (one per sucursal)
+-- automatically inserted by the application layer at creation time.
+CREATE TABLE IF NOT EXISTS product_branch_stocks (
+  product_id   UUID         NOT NULL REFERENCES products (id) ON DELETE CASCADE,
+  branch_id    VARCHAR(50)  NOT NULL,
+  quantity     INTEGER      NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  PRIMARY KEY (product_id, branch_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_branch_stocks_branch  ON product_branch_stocks (branch_id);
+
 -- ─── Stock Movements ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS stock_movements (
   id              UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
