@@ -18,6 +18,8 @@ export interface StockMovementResponseDTO {
   reason: string;
   performedBy: string;
   createdAt: string;
+  sourceBranchId: string | null;
+  destinationBranchId: string | null;
 }
 
 export interface PaginatedStockMovementsDTO {

@@ -8,6 +8,7 @@
 
 import { StockMovement } from '../entities/StockMovement';
 import { ProductId } from '../value-objects/ProductId';
+import { BranchId } from '../value-objects/BranchId';
 import { PaginatedResult, PaginationOptions } from './IProductRepository';
 
 export interface IStockMovementRepository {
@@ -17,6 +18,15 @@ export interface IStockMovementRepository {
   /** Retrieve all movements for a given product. */
   findByProductId(
     productId: ProductId,
+    pagination?: PaginationOptions,
+  ): Promise<PaginatedResult<StockMovement>>;
+
+  /**
+   * Retrieve all movements that involve a given branch
+   * (either as source or destination).
+   */
+  findByBranchId(
+    branchId: BranchId,
     pagination?: PaginationOptions,
   ): Promise<PaginatedResult<StockMovement>>;
 

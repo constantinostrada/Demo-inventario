@@ -8,6 +8,7 @@
 
 import { StockMovement, MovementType } from '../../domain/entities/StockMovement';
 import { ProductId } from '../../domain/value-objects/ProductId';
+import { BranchId } from '../../domain/value-objects/BranchId';
 import {
   IStockMovementRepository,
 } from '../../domain/repositories/IStockMovementRepository';
@@ -24,6 +25,8 @@ interface StockMovementRow {
   reason: string;
   performed_by: string;
   created_at: Date;
+  source_branch_id: string | null;
+  destination_branch_id: string | null;
 }
 
 export class PostgresStockMovementRepository implements IStockMovementRepository {
@@ -33,8 +36,9 @@ export class PostgresStockMovementRepository implements IStockMovementRepository
     await this.db.query(
       `INSERT INTO stock_movements (
         id, product_id, type, quantity,
-        previous_stock, new_stock, reason, performed_by, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        previous_stock, new_stock, reason, performed_by, created_at,
+        source_branch_id, destination_branch_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
         movement.id,
         movement.productId.value,
@@ -45,6 +49,8 @@ export class PostgresStockMovementRepository implements IStockMovementRepository
         movement.reason,
         movement.performedBy,
         movement.createdAt,
+        movement.sourceBranchId?.value ?? null,
+        movement.destinationBranchId?.value ?? null,
       ],
     );
   }
@@ -66,6 +72,35 @@ export class PostgresStockMovementRepository implements IStockMovementRepository
        ORDER BY created_at DESC
        LIMIT $2 OFFSET $3`,
       [productId.value, pagination.limit, offset],
+    );
+
+    return {
+      data: result.rows.map((row) => this.rowToEntity(row)),
+      total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.ceil(total / pagination.limit),
+    };
+  }
+
+  async findByBranchId(
+    branchId: BranchId,
+    pagination: PaginationOptions = { page: 1, limit: 20 },
+  ): Promise<PaginatedResult<StockMovement>> {
+    const countResult = await this.db.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM stock_movements
+       WHERE source_branch_id = $1 OR destination_branch_id = $1`,
+      [branchId.value],
+    );
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    const offset = (pagination.page - 1) * pagination.limit;
+    const result = await this.db.query<StockMovementRow>(
+      `SELECT * FROM stock_movements
+       WHERE source_branch_id = $1 OR destination_branch_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [branchId.value, pagination.limit, offset],
     );
 
     return {
@@ -101,6 +136,10 @@ export class PostgresStockMovementRepository implements IStockMovementRepository
       reason: row.reason,
       performedBy: row.performed_by,
       createdAt: new Date(row.created_at),
+      sourceBranchId: row.source_branch_id ? new BranchId(row.source_branch_id) : undefined,
+      destinationBranchId: row.destination_branch_id
+        ? new BranchId(row.destination_branch_id)
+        : undefined,
     });
   }
 }
