@@ -30,6 +30,10 @@ export class ProductController {
   // POST /api/v1/products
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      // The request body has already been shape-validated by
+      // `createProductValidators`; here we only map it to the DTO.
+      // Any remaining semantic failure (e.g. duplicate SKU) is raised
+      // by the use case and translated to HTTP by `errorHandler`.
       const result = await this.createProduct.execute({
         name: req.body.name as string,
         description: (req.body.description as string) ?? '',
@@ -37,7 +41,7 @@ export class ProductController {
         priceAmount: req.body.priceAmount as number,
         priceCurrency: (req.body.priceCurrency as CurrencyCode) ?? 'USD',
         category: req.body.category as ProductCategoryValue,
-        stockQuantity: 0,
+        stockQuantity: (req.body.stockQuantity as number) ?? 0,
         minimumStockLevel: (req.body.minimumStockLevel as number) ?? 0,
       });
       res.status(201).json({ success: true, data: result });

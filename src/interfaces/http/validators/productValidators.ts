@@ -5,6 +5,11 @@
  * These chains validate shape and type — business rules stay in the domain.
  *
  * Layer: Interfaces → Validators
+ *
+ * Defensive stance: this endpoint is public and receives untrusted input.
+ * Every field is strictly type-checked, bounded in size, and rejected with
+ * a precise 400 message when malformed. Uniqueness (409) and semantic
+ * invariants that require state live in the domain layer, not here.
  */
 
 import { body, param, query } from 'express-validator';
@@ -12,40 +17,90 @@ import { PRODUCT_CATEGORIES } from '../../../domain/value-objects/ProductCategor
 
 const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'MXN', 'GBP', 'CAD'];
 
+// SKU format: uppercase letters, digits and hyphens only. No spaces,
+// no lowercase, no other symbols. Enforced at the HTTP boundary so a
+// malformed SKU is rejected with 400 before it reaches the domain.
+const SKU_FORMAT = /^[A-Z0-9-]+$/;
+
 export const createProductValidators = [
+  // ─── name ─────────────────────────────────────────────────────────────
   body('name')
+    .exists({ values: 'falsy' })
+    .withMessage('name is required')
+    .bail()
     .isString()
+    .withMessage('name must be a string')
+    .bail()
     .trim()
     .notEmpty()
-    .withMessage('name is required')
+    .withMessage('name cannot be empty')
     .isLength({ max: 200 })
     .withMessage('name cannot exceed 200 characters'),
 
+  // ─── brand (marca) ────────────────────────────────────────────────────
+  // Optional metadata field accepted by the API. Kept as a free-form
+  // string with bounded size to resist abuse via oversized payloads.
+  body('brand')
+    .optional({ values: 'falsy' })
+    .isString()
+    .withMessage('brand must be a string')
+    .bail()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('brand cannot exceed 100 characters'),
+
+  // ─── description ──────────────────────────────────────────────────────
   body('description')
     .optional()
     .isString()
+    .withMessage('description must be a string')
+    .bail()
     .isLength({ max: 2000 })
     .withMessage('description cannot exceed 2000 characters'),
 
+  // ─── sku ──────────────────────────────────────────────────────────────
   body('sku')
+    .exists({ values: 'falsy' })
+    .withMessage('sku is required')
+    .bail()
     .isString()
-    .trim()
-    .notEmpty()
-    .withMessage('sku is required'),
+    .withMessage('sku must be a string')
+    .bail()
+    .isLength({ min: 1, max: 50 })
+    .withMessage('sku must be between 1 and 50 characters')
+    .bail()
+    // No trim / toUpperCase: we reject lowercase and whitespace outright
+    // rather than silently coercing — the caller must send a canonical SKU.
+    .matches(SKU_FORMAT)
+    .withMessage(
+      'sku must contain only uppercase letters, digits and hyphens (no spaces or lowercase)',
+    ),
 
+  // ─── priceAmount (precio) ─────────────────────────────────────────────
+  // Strictly positive. A product with price 0 makes no sense for the
+  // inventory use case, and negative values are impossible by definition.
   body('priceAmount')
-    .isFloat({ min: 0 })
-    .withMessage('priceAmount must be a non-negative number'),
+    .exists({ values: 'null' })
+    .withMessage('priceAmount is required')
+    .bail()
+    .isFloat({ gt: 0 })
+    .withMessage('priceAmount must be a number greater than 0'),
 
   body('priceCurrency')
     .optional()
     .isIn(SUPPORTED_CURRENCIES)
     .withMessage(`priceCurrency must be one of: ${SUPPORTED_CURRENCIES.join(', ')}`),
 
+  // ─── category ─────────────────────────────────────────────────────────
   body('category')
+    .exists({ values: 'falsy' })
+    .withMessage('category is required')
+    .bail()
     .isIn(PRODUCT_CATEGORIES)
     .withMessage(`category must be one of: ${PRODUCT_CATEGORIES.join(', ')}`),
 
+  // ─── stockQuantity (stock inicial) ────────────────────────────────────
+  // Non-negative integer. Defaults to 0 when omitted.
   body('stockQuantity')
     .optional()
     .isInt({ min: 0 })
