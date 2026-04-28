@@ -20,6 +20,7 @@ import { PostgresProductRepository } from '../../infrastructure/repositories/Pos
 import { PostgresStockMovementRepository } from '../../infrastructure/repositories/PostgresStockMovementRepository';
 import { PostgresBranchRepository } from '../../infrastructure/repositories/PostgresBranchRepository';
 import { PostgresStockRepository } from '../../infrastructure/repositories/PostgresStockRepository';
+import { InMemoryInventoryItemRepository } from '../../infrastructure/repositories/InMemoryInventoryItemRepository';
 
 import { StockDomainService } from '../../domain/services/StockDomainService';
 
@@ -30,14 +31,17 @@ import { UpdateProductUseCase } from '../../application/use-cases/product/Update
 import { DeleteProductUseCase } from '../../application/use-cases/product/DeleteProductUseCase';
 import { AdjustStockUseCase } from '../../application/use-cases/stock/AdjustStockUseCase';
 import { GetStockMovementsUseCase } from '../../application/use-cases/stock/GetStockMovementsUseCase';
+import { ListInventoryUseCase } from '../../application/use-cases/inventory/ListInventoryUseCase';
 
 import { ProductController } from './controllers/ProductController';
 import { StockController } from './controllers/StockController';
 import { HealthController } from './controllers/HealthController';
+import { InventoryController } from './controllers/InventoryController';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
 import { createProductRouter } from './routes/productRoutes';
 import { createHealthRouter } from './routes/healthRoutes';
+import { createInventoryRouter } from './routes/inventoryRoutes';
 
 export function createApp(): { app: Application; db: PostgresClient } {
   // ─── Infrastructure ─────────────────────────────────────────────────────
@@ -55,6 +59,8 @@ export function createApp(): { app: Application; db: PostgresClient } {
   const stockMovementRepository = new PostgresStockMovementRepository(db);
   const branchRepository = new PostgresBranchRepository(db);
   const stockRepository = new PostgresStockRepository(db);
+  // In-memory repository — no DB dependency, seeded with demo data.
+  const inventoryItemRepository = new InMemoryInventoryItemRepository();
 
   // ─── Domain Services ─────────────────────────────────────────────────────
   const stockDomainService = new StockDomainService();
@@ -78,6 +84,7 @@ export function createApp(): { app: Application; db: PostgresClient } {
     productRepository,
     stockMovementRepository,
   );
+  const listInventoryUseCase = new ListInventoryUseCase(inventoryItemRepository);
 
   // ─── Controllers ─────────────────────────────────────────────────────────
   const productController = new ProductController(
@@ -89,6 +96,7 @@ export function createApp(): { app: Application; db: PostgresClient } {
   );
   const stockController = new StockController(adjustStockUseCase, getStockMovementsUseCase);
   const healthController = new HealthController(db);
+  const inventoryController = new InventoryController(listInventoryUseCase);
 
   // ─── Express App ─────────────────────────────────────────────────────────
   const app = express();
@@ -113,6 +121,7 @@ export function createApp(): { app: Application; db: PostgresClient } {
   // ─── Routes ──────────────────────────────────────────────────────────────
   app.use('/health', createHealthRouter(healthController));
   app.use('/api/v1/products', createProductRouter(productController, stockController));
+  app.use('/api/v1/inventory', createInventoryRouter(inventoryController));
 
   // 404 handler
   app.use((_req, res) => {
