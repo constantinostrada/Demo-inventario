@@ -62,10 +62,13 @@ export class CreateProductWithBranchStockUseCase {
       sku,
       price: Money.fromDecimal(dto.priceAmount, dto.priceCurrency),
       category: new ProductCategory(dto.category),
-      stockQuantity: 0,
+      stockQuantity: dto.stockQuantity,
       minimumStockLevel: dto.minimumStockLevel,
     });
 
+    // Per-branch rows are always seeded at 0: a freshly created product
+    // has not yet been physically delivered to any branch. Stock is then
+    // grown through explicit IN / TRANSFER movements.
     const stockRows = branches.map((branch) => Stock.create(product.id, branch.id, 0));
 
     await this.productRepository.save(product);
